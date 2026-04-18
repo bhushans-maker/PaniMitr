@@ -17,31 +17,25 @@ jobs:
       - name: Find Project Directory
         id: find_project
         run: |
+          # Find the folder containing package.json
           PROJECT_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; | head -n 1)
-          
           if [ -z "$PROJECT_DIR" ]; then
-            echo "::error::Could not find package.json. Ensure unzipped files are uploaded."
+            echo "::error::Could not find package.json."
             exit 1
           fi
-          
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Set up Node.js (Version 24)
+      - name: Set up Node.js (v24)
         uses: actions/setup-node@v4
         with:
           node-version: 24
 
-      - name: Check Environments
-        run: |
-          node -v
-          npm -v
-
       - name: Install dependencies
-        working-directory: ${{ steps.find_project.outputs.project_dir }}
+        working-directory: "${{ steps.find_project.outputs.project_dir }}"
         run: npm install --no-package-lock
 
       - name: Build Web Assets
-        working-directory: ${{ steps.find_project.outputs.project_dir }}
+        working-directory: "${{ steps.find_project.outputs.project_dir }}"
         run: npm run build
 
       - name: Set up JDK 17
@@ -53,17 +47,25 @@ jobs:
       - name: Android SDK Setup
         uses: android-actions/setup-android@v3
 
+      - name: Repair Corrupted Gradle Wrapper
+        working-directory: "${{ steps.find_project.outputs.project_dir }}/android"
+        run: |
+          # If the jar is corrupt, we delete it and let the system gradle regenerate it
+          rm -f gradle/wrapper/gradle-wrapper.jar
+          # Use system pre-installed gradle to fix the wrapper
+          gradle wrapper
+
       - name: Capacitor Sync
-        working-directory: ${{ steps.find_project.outputs.project_dir }}
+        working-directory: "${{ steps.find_project.outputs.project_dir }}"
         run: npx cap sync android
 
       - name: Build APK File
-        working-directory: ${{ steps.find_project.outputs.project_dir }}/android
+        working-directory: "${{ steps.find_project.outputs.project_dir }}/android"
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Save APK to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: PaniMitr-App-APK
