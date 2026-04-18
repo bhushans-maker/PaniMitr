@@ -15,12 +15,19 @@ jobs:
       - name: Find Project Directory
         id: find_project
         run: |
-          # Finds the directory containing package.json
+          # This command finds the folder where package.json lives
           PROJECT_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; | head -n 1)
+          
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "::error::FATAL: Could not find 'package.json'. This usually means you uploaded a .zip file instead of the actual project files. Please extract your ZIP and upload the contents."
+            ls -R
+            exit 1
+          fi
+          
           echo "Using directory: $PROJECT_DIR"
           echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -33,13 +40,13 @@ jobs:
         working-directory: ${{ steps.find_project.outputs.project_dir }}
         run: npm run build
 
-      - name: Set up Java
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
+      - name: Android SDK Setup
         uses: android-actions/setup-android@v3
 
       - name: Capacitor Sync
@@ -52,8 +59,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Save APK to GitHub
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PaniMitr-App-APK
-          path: "**/*.apk" # Searches for any .apk file created
+          path: "**/*.apk"
